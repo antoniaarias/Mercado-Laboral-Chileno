@@ -1,0 +1,526 @@
+---
+title: "Pregunta-2-Proyecto-1"
+author: "daniel"
+date: "2023-08-26"
+output: 
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Personal Universidad de Chile
+
+En lo que sigue, trabajaremos en un informe exploratorio sobre las remuneraciones de la Universidad de Chile. Para ello utilizaremos los datos de Universidad Transparente. En particular los datos del Personal de Planta, disponibles en este link.
+
+## Pregunta 1: Webscrapping
+
+### Parte (a)
+
+Utilizando el link, navega a la página de cada mes del año 2023. Por ejemplo, para el mes de marzo, y para apellidos que comiencen con a ó con b, la URL sería <https://web.uchile.cl/transparencia/p0323ab.html>. Extrae la tabla de datos asociada a cada subconjunto de apellidos (e.g.,AB,CD,EFG,etc.)para cada mes del año 2023. Para esto se recomienda utilizar la librería rvestenR.
+
+**Desarrollo:**
+
+1.  limpiamos e Importamos las librerias necesarias
+
+```{r}
+rm(list = ls())
+library(rvest)
+```
+
+#### Tabla 2023
+
+**Manejo Previo:** Establecemos las cabeceras
+
+```{r}
+cabecera=c('Tipo de Contrato','Estamento','Apellido Paterno','Apellido Materno','Nombres','Grado','Calificación Profesional o Formación','Cargo o Función','Región','A Asignaciones Especiales (Cifra incluida en B)','Unidad Monetaria','B Remuneración Bruta Mensualizada (Contempla cifras de A+C+D)','C Horas Extras Diurnas (Cifra incluida en B)','D Horas Extras Nocturnas (Cifra incluida en B)','Fecha Inicio','Fecha Termino','Observaciones','identificador')
+
+indices = c('ab','cd','efg','hijkl','mno','pqr','stu','vwxyz') #indices de apellidos
+
+urlinicial= 'https://web.uchile.cl/transparencia/p' # Url_base 2023
+urlfinal ='.html' 
+
+
+# Creamos una matrix con las 18 columnas para la construccion de la tabla
+mat = matrix(ncol = 18, nrow = 0)
+```
+
+1.  Creamos una lista de los meses a recorrer, ademas creamos un dataframe que luego acumulara las informacion de las tablas
+
+```{r}
+mes=c('01','02','03','04','05','06','07')
+
+# Creamos una matrix con las 18 columnas para la construccion de la tabla
+mat = matrix(ncol = 18, nrow = 0)
+
+df23=data.frame(mat)
+```
+
+2.  Creamos un for que recorre las distintas tablas y las va acumulando
+
+```{r}
+for(j in mes){ # Se recorre cada mes
+    id=c(j,"23") # creamos un id de cada combinacion mes-año
+   identificador=paste(id,collapse = "")
+   for (i in indices){ #recorremos cada apellido
+     url_1=c(urlinicial,identificador,i,urlfinal) # creamos el url que recoje la informacion del apellido-mes-año
+     url = paste(url_1,collapse = "")
+    
+     html = read_html(url) #Obtenemos la url
+     html_tables <- html_nodes(html, "table") # identificamos el elemento table
+     html_pop <- html_table(html_tables, header = FALSE, fill = TRUE)[[1]] #obtenemos la tabla
+     colnames(html_pop)=cabecera #le ponemos nombre a la tabla
+     id_final <- paste(c("23",j),collapse = "")
+     html_pop$identificador <- id_final  # le agregamos el identificador año
+     df23 = rbind(df23,html_pop) # lo juntamos con la tabla anterior
+     
+   }
+  }
+
+
+```
+
+3.  Imprimimos la tabla
+
+```{r, echo=FALSE}
+df23
+```
+
+### Parte (b)
+
+Repita el proceso anterior para los años 2022, 2021, 2020, 2019, 2018. Junte todas las bases de datos para crear una base de datos de panel a nivel individuo-mes.
+
+**Desarrollo:**
+
+La base de las url varian para los años 2022, 2021 en comparacion con los años previos, por lo cual crearemos dos tablas, una de los años 2022-2021, y otra de los años 2020-2019-2018.
+
+**Manejo Previo:** Establemcemos las cabeceras
+
+```{r}
+
+
+cabecera=c('Tipo de Contrato','Estamento','Apellido Paterno','Apellido Materno','Nombres','Grado','Calificación Profesional o Formación','Cargo o Función','Región','A Asignaciones Especiales (Cifra incluida en B)','Unidad Monetaria','B Remuneración Bruta Mensualizada (Contempla cifras de A+C+D)','C Horas Extras Diurnas (Cifra incluida en B)','D Horas Extras Nocturnas (Cifra incluida en B)','Fecha Inicio','Fecha Termino','Observaciones','identificador')
+
+indices = c('ab','cd','efg','hijkl','mno','pqr','stu','vwxyz') #indices de apellidos
+
+urlinicial= 'https://web.uchile.cl/transparencia/p' # Url_base 2022-2021
+urlfinal ='.html' 
+
+urlinicial2='https://web.uchile.cl/transparencia/planta'# URL_base 2020-2019-2018
+urlfinal2='.html'
+
+# Creamos una matrix con las 18 columnas para la construccion de la tabla
+mat = matrix(ncol = 18, nrow = 0)
+```
+
+#### Primera tabla: 2021-2022
+
+1.  Creamos una lista de los años y meses a recorrer, ademas creamos un dataframe que luego acumulara las informacion de las tablas
+
+```{r}
+año=c('21','22')
+mes=c('01','02','03','04','05','06','07','08','09','10','11','12') #solo hay hasta 0
+df=data.frame(mat)
+```
+
+2.  Creamos un for que recorre las distintas tablas y las va acumulando
+
+```{r,cache = TRUE}
+
+for(h in año){ # Se recorre cada año
+  for(j in mes){ # Se recorre cada mes
+    id=c(j,h) # creamos un id de cada combinacion mes-año
+   identificador=paste(id,collapse = "")
+   for (i in indices){ #recorremos cada apellido
+     url_1=c(urlinicial,identificador,i,urlfinal) # creamos el url que recoje la informacion del apellido-mes-año
+     url = paste(url_1,collapse = "")
+    
+     html = read_html(url) #Obtenemos la url
+     html_tables <- html_nodes(html, "table") # identificamos el elemento table
+     html_pop <- html_table(html_tables, header = FALSE, fill = TRUE)[[1]] #obtenemos la tabla
+     colnames(html_pop)=cabecera #le ponemos nombre a la tabla
+     id_final=paste(c(h,j),collapse = "")
+     html_pop$identificador <- id_final # le agregamos el identificador año
+     df = rbind(df,html_pop) # lo juntamos con la tabla anterior
+     
+   }
+  }
+}
+
+
+```
+
+#### Segunda tabla: 2018-2019-2020
+
+1.  Creamos una lista de los años y meses a recorrer con el segundo formato
+
+```{r}
+año2=c('2018','2019','2020')
+mes2=c('ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic')
+df2=data.frame(mat)
+```
+
+```{r}
+pares_mes <- data.frame(
+  c('01','02','03','04','05','06','07','08','09','10','11','12'),
+  c('ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic')
+  )
+
+pares_año <- data.frame(
+  c("18","19","20"),
+  c('2018','2019','2020')
+)
+colnames(pares_mes) <- c("numeros","palabras")
+colnames(pares_año) <- c("numeros","palabras")
+```
+
+2.  Creamos un for que recorre las distintas tablas y las va acumulando
+
+```{r,cache = TRUE}
+for(h in año2){ # se recorre cada año
+  for(j in mes2){ # se recorre cada mes
+    id=c(j,h) # se crea un id mes-año
+    identificador=paste(id,collapse = "")
+    for (i in indices){ # se recorre cada apellido
+      url_1=c(urlinicial2,identificador,i,urlfinal2)
+      url = paste(url_1,collapse = "") # se crea la url con la combinacion apellido-mes-año
+      
+      html = read_html(url) # obtenemos la url
+      html_tables <- html_nodes(html, "table") # obtenemos el elemento table
+      html_pop <- html_table(html_tables, header = FALSE, fill = TRUE)[[1]] # leemos la tabla
+      colnames(html_pop)=cabecera # le cambiamos la cabecera
+      
+      # le ponemos un identificador mes-año en el mismo formato que el primer df
+      fila_mes <- which(pares_mes$palabras == j)
+      fila_año <- which(pares_año$palabras == h)
+      id_final <- paste(c(pares_año$numeros[fila_año],pares_mes$numeros[fila_mes]),collapse = "")
+      html_pop$identificador <- id_final
+      
+      df2 = rbind(df2,html_pop) # lo unimos con la tabla anterior
+    }
+  }
+}
+```
+
+3.  Unimos la primera con la segunda tabla
+
+```{r}
+df_final = rbind(df2,df,df23) # primeros los años 2018-2019-2020 y luego 2021-2022-2023
+```
+
+4.  Printeamos el df final
+
+```{r,echo=FALSE}
+df_final_prueba <- df_final
+df_final
+
+```
+
+## Pregunta 2: Análisis descriptivo - datos Universidad de Chile
+
+### Parte (a)
+
+Genere tres gráficos de barra con la *Remuneración Bruta Mensualizada* promedio por i) estamento, ii) grado, y ii) facultad (códigos que comienzan con 12). Comente sus resultados.
+
+Utilizamos la librería dplyr para trabajar los datos
+
+```{r,echo=FALSE}
+library(dplyr)
+library(ggplot2)
+```
+
+Primero, trabajamos los datos para su uso, por lo que buscamos las columnas con datos faltantes, y ademas, transformamos en enteros los valores de la columna remuneracion bruta mensualizada 
+
+```{r}
+df_NA <- df_final %>%  #filtramos las datos faltantes
+  filter(!complete.cases(.))
+
+df_NA
+```
+
+De la tabla es posible notar que las filas incompletas corresponden a filas que no continen datos. Además, su número es reducido en comparación al tamaño del dataframe, por lo que se estima que se puede continuar con el trabajo sin problemas.
+
+Generamos arreglos útiles para arreglar los errores en las columnas Estamento y Grado
+
+Es necesario arreglar la columna estamento
+
+
+```{r}
+arreglar_estamento <- data.frame(
+  c("Técnico","Académico","T�cnico","Acad�mico","Administrativo","Auxiliar", "Directivo", "Liceo Manuel de Salas", "Médico", "Pers. Colaboración", "Profesional"),
+  c("Tecnico","Academico","Tecnico","Academico","Administrativo","Auxiliar", "Directivo", "Liceo Manuel de Salas", "Medico", "Pers. Colaboracion", "Profesional")
+  )
+
+colnames(arreglar_estamento) <- c("Estamento","Estamento_nuevo")
+```
+
+
+```{r}
+arreglar_grados <- data.frame(
+  c("#¡VALOR!","01","02","03","04","05","06","07","08","09","10","01","02","03","04","05","06","07","08","09","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","C"),
+  
+  c("#¡VALOR!","01","02","03","04","05","06","07","08","09","10","1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","C")
+  )
+
+colnames(arreglar_grados) <- c("Grado_nuevo","Grado")
+```
+
+
+
+Se puede notar que el dataframe contiene los valores de la remuneraciones como tipo character, por lo que es necesario traspasarlos a integer.
+```{r}
+
+#Primero se elimina los puntos en los salarios
+df_final$remuneracion_sin_puntos <-   gsub("\\.", "", df_final$`B Remuneración Bruta Mensualizada (Contempla cifras de A+C+D)`)
+df_final$remuneracion_sin_puntos <- gsub("\\.", "", df_final$remuneracion_sin_puntos)
+```
+
+
+
+```{r}
+df_final <- df_final %>% 
+  mutate(`B Remuneración Bruta Mensualizada` = as.integer(remuneracion_sin_puntos)) %>% 
+  mutate(Observaciones = as.character(Observaciones)) %>% 
+  filter(complete.cases(.)) %>% 
+  merge(arreglar_estamento,by="Estamento") %>%
+  merge(arreglar_grados,by="Grado")
+```
+
+
+1.  Tabla por estamento
+
+
+Luego, se crea el dataframe. Por lo que, se crea un nuevo DataFrame llamado df_estamento que contiene los promedios de la remuneración bruta mensualizada para cada estamento corregido en el DataFrame original.
+
+```{r}
+df_estamento <- df_final %>% 
+    select(Estamento_nuevo,`B Remuneración Bruta Mensualizada`) %>% 
+  mutate(`B Remuneración Bruta Mensualizada` = as.integer(`B Remuneración Bruta Mensualizada`)) %>% 
+  group_by(Estamento_nuevo) %>% 
+  summarise(promedio_estamento=mean(`B Remuneración Bruta Mensualizada`)) 
+```
+
+Luego, generamos el gráfico de barras solicitado. Se crea un gráfico de barras que muestra los promedios de remuneración bruta mensualizada para cada estamento. Cada barra en el gráfico representa un estamento, y su altura está determinada por el promedio de remuneración. El eje x muestra los estamentos corregidos y el eje y muestra los valores promedio de remuneración.
+
+```{r}
+ggplot(df_estamento, aes(x = Estamento_nuevo, y = promedio_estamento)) +
+  geom_bar(stat = "identity")+
+  scale_y_continuous(labels = scales::comma)+
+  theme(axis.text.x = element_text(angle = 25, hjust = 1))
+```
+A partir del grafico, se observa que el estamento de los directivos es por lejos el estamento con mayor salario con remuneraciones promedio cercanas a los 4.5 millones, seguido del estamento de los academicos con remuneraciones promedio cercana a los 3 millones. Por otro lado, se tiene que los estamento de adminsitrativos y auxiliares comparten las menores remuneraciones promedio.
+
+
+2.  Tabla por grado
+
+Creamos df_grado que contiene los promedios de la remuneración bruta mensualizada para cada grado corregido en la base de datos. Donde cada fila en df_grado representa un grado corregido y muestra su promedio 'B Remuneracion Bruta Mensualizada'.
+
+```{r}
+df_grado <- df_final %>% 
+  select(Grado_nuevo,`B Remuneración Bruta Mensualizada`) %>%
+  group_by(Grado_nuevo) %>% 
+  summarise(promedio_grado = mean(`B Remuneración Bruta Mensualizada`))
+```
+
+Generamos el grafico solicitado. Por lo que, se crea un gráfico de barras que muestra los promedios de remuneración bruta mensualizada para cada grado. Donde cada barra en el gráfico representa un grado, y su altura está determinada por el promedio de remuneración. El eje x muestra los grados y el eje y muestra los valores promedio de remuneración.
+```{r}
+ggplot(df_grado, aes(x = Grado_nuevo, y = promedio_grado)) +
+  geom_bar(stat = "identity")+
+  scale_y_continuous(labels = scales::comma)+
+  theme(axis.text.x = element_text(angle = 25, hjust = 1))
+```
+A partir del grafico, se observa que la remuneracion tiende a ir en aumento desde el grado 25, hasta el grado 3, donde se provoca un quiebre, ya que los grados 1 y 2 disminuyen considerablemente, en relacion al 3. Por otro lado, el grado c, es parte de los salarios con mayor remuneracion. 
+
+
+Generamos un dataframe con los datos de los grados
+
+```{r}
+datos_grados <- data.frame(  
+  
+  c("01","02","03","04","05","06","07","08","09","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25"),
+  
+  c("1593304","1503118","1418033","1337775","1262051","1190606","1123221","1059630","999654","943077","889694","839339","791829","747021","704731","664848","627208","591713","558211","526623","496810","468701","442169","417133","393543")
+  
+)
+
+colnames(datos_grados) <- c("Grado","Sueldo_base_mensual_en_pesos")
+
+datos_grados <- datos_grados %>% mutate(Sueldo_base_mensual_en_pesos = as.integer(Sueldo_base_mensual_en_pesos))
+```
+
+Generamos un grafico de puntos
+
+```{r}
+ggplot(datos_grados, aes(x = Grado, y = Sueldo_base_mensual_en_pesos)) +
+  geom_point()+
+  theme(axis.text.x = element_text(angle = 25, hjust = 1))
+
+```
+
+3.  Tabla por Facultad
+
+Obtenemos un diccionario de las facultades con su valor asociado. Se crea un diccionario asocia los códigos de facultades con sus nombres correspondientes. Los códigos de las facultades se toman como claves y los nombres de las facultades como valores.
+
+```{r}
+diccionario <- list(
+  "1101" = "NULL",
+  "1102" = "NULL",
+  "1103" = "NULL",
+  "1104" = "NULL",
+  "1106" = "NULL",
+  "1107" = "NULL",
+  "1108" = "NULL",
+  "1201" = "F. de Arquitectura y Urbanismo",
+  "1202" = "F. de Artes",
+  "1203" = "F. de Cs.",
+  "1204" = "F. de Cs. Agronómicas",
+  "1205" = "F. de Economía y Negocios",
+  "1206" = "F. de Cs. Físicas y Matemáticas",
+  "1207" = "F. de Cs. Fores. y de la Cons. de la Nat.",
+  "1208" = "F. de Cs. Químicas y Farmacéuticas",
+  "1209" = "F. de Cs. Sociales",
+  "1210" = "F. de Cs. Veterinarias y Pecuarias",
+  "1211" = "F. de Derecho",
+  "1212" = "F. de Filosofía y Humanidades",
+  "1213" = "F. de Medicina",
+  "1214" = "F. de Odontología",
+  "1301" =  "NULL", 
+  "1302" =  "NULL", 
+  "1304" =  "NULL", 
+  "1305" =  "NULL", 
+  "1306" =  "NULL", 
+  "1401" =  "NULL", 
+  "1402" =  "NULL", 
+  "1403" =  "NULL", 
+  "1501" =  "NULL", 
+  "1601" =  "NULL", 
+  "1701" =  "NULL", 
+  "1702" =  "NULL", 
+  "1801" =  "NULL", 
+  "1802" =  "NULL")
+
+diccionario <- stack(diccionario) 
+colnames(diccionario) <- c("Facultades","Observaciones")
+```
+Se crea crea df_facultad que contiene los promedios de remuneración bruta mensualizada para cada facultad. Donde cada fila en df_facultad representa una facultad y muestra su promedio de remuneración.
+
+```{r}
+df_facultad <- df_final %>% 
+  select(Observaciones,`B Remuneración Bruta Mensualizada`) %>% 
+  merge(diccionario,by="Observaciones" ) %>% 
+  filter(Facultades != "NULL") %>%  #sacar los que no son facultades que quedaron como NULL
+  group_by(Facultades) %>% 
+  summarise(promedio_facultad = mean(`B Remuneración Bruta Mensualizada`)) 
+```
+
+
+Generamos el gráfico solicitado, es decir, se crea un gráfico de barras que muestra los promedios de remuneración bruta mensualizada para cada facultad. Donde cada barra en el gráfico representa una facultad, y su altura está determinada por el promedio de remuneración. El eje x muestra los nombres de las facultades y el eje y muestra los valores promedio de remuneración.
+
+```{r}
+ggplot(df_facultad, aes(x = Facultades, y = promedio_facultad)) +
+  geom_bar(stat = "identity")+
+  scale_y_continuous(labels = scales::comma)+
+  theme(axis.text.x = element_text(angle = 25, hjust = 1))
+
+```
+A partir del grafico, se observa que los ingresos de la FEN y la FCFM son los mayores entre las facultades, y contando con defierencia de mas de 500.000 pesos en el promedio de remuneracion. Donde cabe destacar que la facultad de medicina es la que tienen menores ingresos promedio, situacion que se contradice con la realidad, dado que la medicos tienen mejores salarios que el promedio de las demas profesiones, esto puede venir explicado por que sus academicos hacen menos horas lectivas. 
+
+
+Se agrega un gráfico que cuente la cantidad de personas por estamento en Medicina
+```{r}
+df_facultad_med <- df_final %>% 
+  select(Observaciones,Estamento_nuevo) %>% 
+  merge(diccionario,by="Observaciones" ) %>% 
+  filter(Facultades == "F. de Medicina") %>%  #sacar los que no son facultades que quedaron como NULL
+  group_by(Estamento_nuevo) %>% 
+  summarise(Cantidad = n()) 
+```
+
+```{r}
+ggplot(df_facultad_med, aes(x = Estamento_nuevo, y = Cantidad)) +
+  geom_bar(stat = "identity")+
+  scale_y_continuous(labels = scales::comma)+
+  theme(axis.text.x = element_text(angle = 25, hjust = 1))
+
+```
+
+Se agrega gráfico que cuente la cantidad de personas por estamento en Beauchef
+```{r}
+df_facultad_boxef <- df_final %>% 
+  select(Observaciones,Estamento_nuevo) %>% 
+  merge(diccionario,by="Observaciones" ) %>% 
+  filter(Facultades == "F. de Cs. Físicas y Matemáticas") %>%  #sacar los que no son facultades que quedaron como NULL
+  group_by(Estamento_nuevo) %>% 
+  summarise(Cantidad = n()) 
+```
+
+```{r}
+ggplot(df_facultad_boxef, aes(x = Estamento_nuevo, y = Cantidad)) +
+  geom_bar(stat = "identity")+
+  scale_y_continuous(labels = scales::comma)+
+  theme(axis.text.x = element_text(angle = 25, hjust = 1))
+
+```
+
+
+### Parte (b)
+
+
+Produzca un gráfico que de cuenta de la evolución de salarios en el tiempo (desde enero 2018 a junio 2023) por estamento. Comente sus resultados.
+
+Primero se genera el dataframe. Para esto, se crea un DataFrame llamado df_tiempo a partir de df_final:
+
+Con este dataframe se realizan 3 operaciones principales. Primero, se seleccionan las columnas "identificador", "Estamento" y "B Remuneración Bruta Mensualizada" del DataFrame df_final. Segundo, se agrupan los datos por "identificador", que como vimos al inicio representa el mes-año de la planilla, y "Estamento". Y por ultimo, se calcula el promedio de la columna "B Remuneración Bruta Mensualizada" para cada grupo de "identificador" y "Estamento".
+
+```{r}
+df_tiempo <- df_final %>% 
+  select(identificador,Estamento_nuevo,`B Remuneración Bruta Mensualizada`) %>% 
+  group_by(identificador,Estamento_nuevo) %>% 
+  summarise(promedio_estamento_mes=mean(`B Remuneración Bruta Mensualizada`))
+```
+
+Luego se genera el gráfico, donde se muestra la evolución de los salarios promedio en el tiempo, desde enero de 2018 hasta junio de 2023, para cada estamento. Cada línea en el gráfico representa un estamento y muestra cómo ha variado su remuneración bruta promedio a lo largo del tiempo.
+
+```{r,fig.width = 14}
+ggplot(df_tiempo, aes(x = identificador, y = promedio_estamento_mes, group = Estamento_nuevo, color = Estamento_nuevo)) +
+  geom_line() +
+  labs(x = "Mes-Año", y = "Remuneración bruta promedio", title = "Remuneración bruta promedio") +
+  scale_y_continuous(labels = scales::comma)+
+  theme_minimal()+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+Comprobar que las lineas faltantes se deben a un problema de origen de los datos.
+```{r}
+ unique(df_final_prueba[df_final_prueba$Estamento == "Directivo",]$identificador)
+
+ unique(df_final_prueba[df_final_prueba$Estamento == "Pers. Colaboración",]$identificador)
+ unique(df_final_prueba[df_final_prueba$Estamento == "Médico",]$identificador)
+ unique(df_final_prueba[df_final_prueba$Estamento == "Liceo Manuel de Salas",]$identificador)
+
+```
+
+
+Se calcula la variación porcentual de cada estamento
+```{r}
+
+df_variacion <- df_tiempo %>%
+  filter(identificador == "1801" | identificador == "2307") %>%
+  group_by(Estamento_nuevo) %>%
+  summarise(Variacion_porcentual = (promedio_estamento_mes[identificador == "2307"] - promedio_estamento_mes[identificador == "1801"])/promedio_estamento_mes[identificador == "1801"])
+
+df_variacion
+```
+
+
+```{r}
+  ggplot(df_variacion, aes(x = Estamento_nuevo, y = Variacion_porcentual)) +
+  geom_bar(stat = "identity")+
+  scale_y_continuous(labels = scales::comma)+
+  theme(axis.text.x = element_text(angle = 25, hjust = 1))
+
+```
+

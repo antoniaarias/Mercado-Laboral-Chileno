@@ -1,0 +1,493 @@
+---
+title:  'Proyecto 1'
+output:
+  html_document: 
+    theme: simplex
+    highlight: tango
+  pdf_document: default
+  always_allow_html: true
+  encoding: UTF-8
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+::: {style="text-align: center"}
+**Ingeniería Civil Industrial**
+:::
+
+::: {style="text-align: center"}
+**U. de Chile**
+:::
+
+::: {style="text-align: center"}
+**IN5244**: Ciencia de los Datos
+:::
+
+::: {style="text-align: center"}
+**Integrantes**: Tomás Aguirre, Antonia Arias, Daniel Jara, Nicolás Pacheco, Arturo Salinas
+:::
+
+::: {style="text-align: center"}
+**Prof**: Pablo Muñoz
+:::
+
+::: {style="text-align: center"}
+**Auxs**: Alexandra M. y Rienzi R.
+:::
+
+::: {style="text-align: center"}
+**Fecha**: Agosto de 2023
+:::
+
+```{=html}
+<style type="text/css">
+.main-container {
+  max-width: 90%;
+  margin-left: auto;
+  margin-right: auto;
+}
+body {
+text-align: justify;
+font-family: Helvetica;
+  font-size: 12pt;}
+h1{
+  font-size: 24pt;
+}
+h2{
+  font-size: 20pt;
+}
+h3{
+  font-size: 16pt;
+}
+h4{
+  font-size: 14pt;
+}
+
+table, th, td {
+    font-size: 12px;
+}
+</style>
+```
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+
+```{r, warning=FALSE}
+rm(list = ls())
+library(readr)
+library(dplyr)
+afiliados <- read_csv("afiliados.csv", show_col_types = FALSE)
+rentas <- read_csv("rentas.csv", show_col_types = FALSE)
+```
+
+# Desarrollo {.tabset}
+
+## Limpieza de los datos
+
+```{r}
+#Eliminamos (chequeamos) NA's y duplicados
+afiliados <- distinct(afiliados)
+afiliados <- na.omit(afiliados)
+
+rentas <- distinct(rentas)
+rentas <- na.omit(rentas)
+
+#------------------------------------------(a)--------------------------------------------------------------------------
+#Reemplazo: "devengamiento" (AAAAMM) --> "year" (AAAA)
+#Eliminación variable "X"
+rentas1 <- rentas %>% mutate(year = substr(devengamiento, 1, 4)) %>% select(-devengamiento)
+
+#Agrupamiento por id de afiliado y año de ingreso:
+muestreo <- rentas1 %>%
+  group_by(id, year) %>%
+  summarize(income = sum(income),
+            contract_type = contract_type[which.max(income)],
+            disability_subsidy = disability_subsidy[which.max(income)],
+            industry = industry[which.max(income)],
+            comuna_employer = comuna_employer[which.max(income)],
+            n_workers = n_workers[which.max(income)],
+            mean_income_employer = mean_income_employer[which.max(income)],
+            std_income_employer = std_income_employer[which.max(income)],
+            imponible_zero = imponible_zero[which.max(income)],
+            imponible_tope = imponible_tope[which.max(income)],
+            min_wage = min_wage[which.max(income)],
+            id_employer = id_employer[which.max(income)],
+            region_employer = region_employer[which.max(income)])
+
+#----------------------------------------(b)---------------------------------------------------------------------
+#Creamos ambas variables binarias
+afiliados1 <- afiliados %>%
+  mutate(educ_universitaria_completa = ifelse(educ_level >= 11 & educ_level <= 13, 1, 0)) %>%
+  mutate(casado = ifelse(civil_status == 2, 1, 0))
+
+#Creamos una base de datos con sólo 3 variables: id, educ_universitaria_completa y casado
+afiliados2 <- select(afiliados1, id, educ_universitaria_completa, casado, sexo, birth_date)
+
+#Combinamos la base de datos "muestreo" con "afiliados2" mediante la variable común "id"
+merged_data <- merge(muestreo, afiliados2, by = "id", all.x = TRUE)
+
+#Eliminamos NA's
+df <- na.omit(merged_data)
+```
+
+```{r}
+# Convertir birth_date a tipo character y extraer el año de nacimiento
+df <- df %>%
+  mutate(birth_year = as.numeric(substr(birth_date, 1, 4)))
+
+# Calcular la edad en función de birth_year y año actual
+df <- df %>%
+  mutate(edad = as.numeric(year) - birth_year)
+
+# Eliminar filas donde la columna 'income' sea menor o igual a 5000
+df <- df %>%
+  filter(edad < 150)
+```
+
+```{r}
+columnas_deseadas <- c("id", "sexo", "income", "year", "educ_universitaria_completa", "casado", "edad", "birth_year")
+df <- df[, columnas_deseadas]
+df$income <- as.numeric(df$income)
+```
+
+
+## Análisis descriptivo
+
+```{r}
+set.seed(314159)
+
+df_sub <- df %>%
+  filter(runif(n()) <= 0.2)
+
+```
+
+
+### a)
+
+```{r}
+library(ggplot2)
+
+jubilacion <- 65
+
+# Agregar la columna de promedio de salario por edad y género
+df_summary <- df_sub %>%
+  group_by(edad, sexo) %>%
+  summarize(promedio_salario = mean(income))
+
+# Crear el gráfico con promedio de salarios separado por género
+ggplot(data = df_summary, aes(x = edad, y = promedio_salario, color = sexo, linetype = "Jubilación")) +
+  geom_point() +
+  geom_line() +
+  geom_vline(aes(xintercept = jubilacion), linetype = "solid", color = "black") +
+  labs(title = "Evolución de Ingresos Anuales Promedio por Género",
+       x = "Edad",
+       y = "Ingreso Promedio [Millones de pesos]",
+       color = "Género",
+       linetype = "Evento") +  # Cambia el nombre de la leyenda "Jubilación" a "Evento"
+  scale_color_manual(values = c("blue", "red"),
+                     labels = c("Femenino", "Masculino")) +
+  scale_linetype_manual(values = c("solid"),
+                        labels = c("Edad de Jubilación")) +
+  theme_minimal() +
+  scale_y_continuous(
+    breaks = seq(0, max(df_summary$promedio_salario), by = 2500000),
+    labels = scales::comma_format(scale = 1e-6)  # Convierte a millones y aplica comas
+  ) +
+  scale_x_continuous(breaks = seq(0, max(df_summary$edad), by = 10))
+
+
+```
+
+### b)
+Al comparar los grupos en el gráfico, se ve que ambos crecen de manera similar hasta pasados los 30 años, donde el ingreso promedio del género masculino supera al femenino. En este sentido, a partir de los 40 años es posible notar que empieza una clara diferencia donde el ingreso promedio es mayor para el género masculino. La diferencia generada entre ambos grupos se puede deber al tipo de sociedad en el que se se encuentran tomados los datos, en donde el rol predominante en los hogares de las familias es liderado por el género femenino. En este sentido, es posible que en esta sociedad el género femenino trabaje menos horas que el masculino y que por eso tenga un ingreso menor, o por otro lado, también podría ser que el su trabajo esté menos valorado por parte de la mayoría de los empleadores. 
+La diferencia salarial se mantiene hasta la edad de jubilación a los 65 años. Luego de este umbral, ambas curvas se desordenan debido a la naturaleza de los datos con los que se realiza el gráfico. Esto es, después de la jubilación las personas que no generan ingresos dejan de aparecer en la base de datos, haciendo que a partir de los 65 años se comience a tomat el promedio de los ingresos de menos personas que antes de la edad de jubilación. 
+
+### c) 
+
+```{r}
+library(dplyr)
+library(tidyr)
+# Generar todas las combinaciones de id y año en el rango 2010-2021
+id_range <- expand.grid(id = unique(df$id), year = 2010:2021)
+
+# Convertir la columna year en id_range a tipo character
+id_range$year <- as.character(id_range$year)
+
+# Convertir la columna year en df a tipo character (si no lo está ya)
+df$year <- as.character(df$year)
+
+# Unir las combinaciones generadas con el conjunto de datos original
+df_expanded <- full_join(df, id_range, by = c("id", "year"))
+
+# Ordenar el conjunto de datos por id y año
+df_expanded <- df_expanded %>%
+  arrange(id, year)
+
+# Llenar las demás variables con NA en columnas numéricas
+num_cols <- names(df)[sapply(df, is.numeric)]
+df_expanded[num_cols][is.na(df_expanded[num_cols])] <- NA
+
+
+# Reemplazar los valores NA en la columna income por 0
+df_expanded$income <- ifelse(is.na(df_expanded$income), 0, df_expanded$income)
+
+df_expanded <- df_expanded %>%
+  group_by(id) %>%
+  fill(sexo, birth_year, casado, educ_universitaria_completa, .direction = "downup") %>%
+  ungroup()
+
+
+# Calcular la edad en función de birth_year y año actual
+df_expanded <- df_expanded %>%
+  mutate(edad = as.numeric(year) - birth_year)
+
+# Verificar el resultado
+head(df_expanded)
+```
+
+### d)
+```{r}
+# Eliminar filas con valores NA en la columna "sexo"
+df_expanded <- df_expanded %>%
+  filter(!is.na(sexo))
+
+# Agregar la columna de promedio de salario por edad y género
+df_summary <- df_expanded %>%
+  group_by(edad, sexo) %>%
+  summarize(promedio_salario = mean(income))
+
+# Crear el gráfico con promedio de salarios separado por género
+ggplot(data = df_summary, aes(x = edad, y = promedio_salario, color = sexo, linetype = "Jubilación")) +
+  geom_point() +
+  geom_line() +
+  geom_vline(aes(xintercept = jubilacion), linetype = "solid", color = "black") +
+  labs(title = "Evolución de Ingresos Anuales Promedio por Género",
+       x = "Edad",
+       y = "Ingreso Promedio [Millones de pesos]",
+       color = "Género",
+       linetype = "Evento") +  # Cambia el nombre de la leyenda "Jubilación" a "Evento"
+  scale_color_manual(values = c("blue", "red"),
+                     labels = c("Femenino", "Masculino")) +
+  scale_linetype_manual(values = c("solid"),
+                        labels = c("Edad de Jubilación")) +
+  theme_minimal() +
+  scale_y_continuous(
+    breaks = seq(0, max(df_summary$promedio_salario), by = 2500000),
+    labels = scales::comma_format(scale = 1e-6)  # Convierte a millones y aplica comas
+  ) +
+  scale_x_continuous(breaks = seq(0, max(df_summary$edad), by = 10))
+```
+En este gráfico se puede ver lo mismo que en el anterior, pero con la diferencia de que la separación entre los grupos está aún más marcada. En este sentido, dentro de la misma explicación anterior donde la sociedad en la que se encuentran tomados los datos es una en la que la labor del hogar del género femenino es preponderante por sobre el masculino, ahora también se incluye a aquellas mujeres que en algún momento entre 2010 y 2021 trabajaron, pero que también tuvieron un periodo fuera del ámbito laboral.
+Al mismo tiempo, pasada la edad de jubilación, se ven los mismos peaks del gráfico anterior, pero estos valores se encuentran más bajos debido a que se incluye a aquellas personas que no tienen ingresos (dada su jubilación) dentro del cálculo del promedio, lo que hace que el valor final baje.
+
+
+## Estudio de eventos
+
+```{r}
+
+df_expanded <- subset(df_expanded, select = c(id, income, edad, year))
+
+```
+
+```{r}
+# Calculate IQR and outlier bounds
+Q1 <- quantile(df_expanded$income, 0.25)
+Q3 <- quantile(df_expanded$income, 0.75)
+IQR <- Q3 - Q1
+lower_whisker <- Q1 - 1.5 * IQR
+upper_whisker <- Q3 + 1.5 * IQR
+
+# Identify IDs with at least one row outside the whiskers
+outlier_ids <- unique(df_expanded$ID[df_expanded$income < lower_whisker | df_expanded$income > upper_whisker])
+
+# Remove IDs with outlier years
+df_filtered <- df_expanded[!(df_expanded$id %in% outlier_ids), ]
+
+# Create the updated boxplot
+boxplot(df_filtered$income ~ df_filtered$year, xlab = "Year", ylab = "Income", main = "Boxplot of Income")
+
+# Calculate IQR and outlier bounds for edad
+Q1_edad <- quantile(df_expanded$edad, 0.25)
+Q3_edad <- quantile(df_expanded$edad, 0.75)
+IQR_edad <- Q3_edad - Q1_edad
+lower_whisker_edad <- Q1_edad - 1.5 * IQR_edad
+upper_whisker_edad <- Q3_edad + 1.5 * IQR_edad
+
+# Identify IDs with at least one row with age outside the whiskers
+outlier_ids_edad <- unique(df_expanded$id[df_expanded$edad < lower_whisker_edad | df_expanded$edad > upper_whisker_edad])
+
+# Remove IDs with outlier ages
+df_filtered_edad <- df_expanded[!(df_expanded$id %in% outlier_ids_edad), ]
+
+# Create the updated boxplot for edad
+boxplot(df_filtered_edad$edad ~ df_filtered_edad$year, xlab = "Year", ylab = "Age", main = "Boxplot of Age")
+
+
+# Identify IDs with rows having edad >= 75
+ids_to_remove <- unique(df_expanded$id[df_expanded$edad >= 75])
+
+# Remove rows for the identified IDs
+df_expanded <- df_expanded[!(df_expanded$id %in% ids_to_remove), ]
+
+# Print the modified dataset
+print(df_expanded)
+
+```
+
+
+
+```{r, warning=FALSE, cache=TRUE}
+df_expanded <- df_expanded %>%
+  arrange(id, year) %>%
+  group_by(id) %>%
+  mutate(
+    eventos = ifelse(year == 2010 & income == 0, 1, ifelse(income == 0 & lag(income) != 0, 1, 0)),
+    eventos = ifelse(any(eventos == 1) & year == min(year[eventos == 1]), 1, 0)
+  ) %>%
+  ungroup()
+
+print(df_expanded)
+```
+
+
+
+```{r, warning=FALSE, cache=TRUE}
+
+# Assuming df_expanded is your data frame
+
+num_lags <- 4
+num_leads <- 4
+
+lag_cols <- paste0("lag_evento_", 1:num_lags)
+lead_cols <- paste0("lead_evento_", 1:num_leads)
+
+# Fill the new lag and lead columns with zeros
+for (i in 1:num_lags) {
+  lag_col <- lag_cols[i]
+  df_expanded <- df_expanded %>%
+    group_by(id) %>%
+    mutate(!!lag_col := ifelse(row_number() <= i, 0, lag(eventos, i)))
+}
+
+for (i in 1:num_leads) {
+  lead_col <- lead_cols[i]
+  df_expanded <- df_expanded %>%
+    group_by(id) %>%
+    mutate(!!lead_col := ifelse(row_number() > n() - i, 0, lead(eventos, i)))
+}
+
+df_expanded <- df_expanded %>%
+  arrange(id, year) %>%
+  group_by(id) %>%
+  mutate(
+    lead_evento_4 = ifelse(any(lead_evento_4 == 1) & year <= max(year[lead_evento_4 == 1]), 1, lead_evento_4),
+    lag_evento_4 = ifelse(any(lag_evento_4 == 1) & min(year[lag_evento_4 == 1]) <= year , 1, lag_evento_4)
+  ) %>%
+  ungroup()
+
+
+
+
+
+# Specify the new order of columns
+new_column_order <- c("id","income", "year", "lead_evento_4" , "lead_evento_3", "lead_evento_2", "lead_evento_1", "eventos", "lag_evento_1", "lag_evento_2", "lag_evento_3", "lag_evento_4")  # List the column names in the desired order
+
+# Reorder the columns based on the new order
+df_expanded <- df_expanded %>% select(new_column_order)
+
+
+# Ahora df_expanded tiene las columnas de leads y lags para 'evento'
+print(df_expanded)
+
+```
+
+```{r}
+# Count null values in df_expanded
+null_counts <- sapply(df_expanded, function(x) sum(is.na(x)))
+
+# Display the null counts
+print(null_counts)
+
+```
+```{r}
+# Convert all columns to numeric if needed
+
+# Assuming 'df_expanded' is your data frame
+
+# Create a time dummy matrix for the year fixed effects
+year_dummies <- model.matrix(~ factor(year) - 1, data = df_expanded)
+
+# Combine lead and lag variables
+lead_lag_vars <- c("lead_evento_4", "lead_evento_3", "lead_evento_2", "lead_evento_1", "eventos", "lag_evento_1", "lag_evento_2", "lag_evento_3", "lag_evento_4")
+
+# Create a data frame with the selected variables
+data_with_dummies <- cbind(df_expanded[lead_lag_vars], year_dummies)
+
+# Add the 'income' variable to the data frame
+data_with_dummies$income <- df_expanded$income
+
+# Perform fixed effects estimation without intercept
+fe_model <- lm(income ~ -1 + ., data = data_with_dummies)
+
+# Obtain coefficient estimates and their confidence intervals
+coef_summary <- summary(fe_model)$coef
+
+print(coef_summary)
+
+
+```
+
+```{r}
+# Assuming you've already defined 'coef_values' and 'coef_names'
+coef_values <- coef_summary[c("lead_evento_4","lead_evento_3", "lead_evento_2", "lead_evento_1", "eventos", "lag_evento_1", "lag_evento_2", "lag_evento_3", "lag_evento_4"), "Estimate"]
+
+# Define your custom x-axis labels
+custom_labels <- c("pre", "-3", "-2", "-1", "0", "1", "2", "3", "post")
+
+# Check for finite coefficient values
+if (all(is.finite(coef_values))) {
+  # Create a sequence of numbers to serve as x-axis positions
+  x_positions <- seq_along(coef_values)
+  
+  # Calculate y-axis limits
+  y_limits <- range(coef_values, na.rm = TRUE)
+  
+  # Plotting coefficients with confidence intervals as lines
+  plot(x_positions, coef_values, type = "n", ylim = y_limits,
+       xaxt = "n", xlab = "Periodos", ylab = "Coefficient Estimate",
+       main = "Coefficient Estimates")
+  
+  # Add coefficient estimates as points with error bars
+  points(x_positions, coef_values, pch = 19)
+  segments(x_positions, coef_values - 1.96 * coef_summary[c("lead_evento_4","lead_evento_3", "lead_evento_2", "lead_evento_1", "eventos", "lag_evento_1", "lag_evento_2", "lag_evento_3", "lag_evento_4"), "Std. Error"],
+           x_positions, coef_values + 1.96 * coef_summary[c("lead_evento_4","lead_evento_3", "lead_evento_2", "lead_evento_1", "eventos", "lag_evento_1", "lag_evento_2", "lag_evento_3", "lag_evento_4"), "Std. Error"])
+  
+  # Customize x-axis tick labels
+  axis(1, at = x_positions, labels = custom_labels, las = 2)
+  
+  # Add a legend
+  legend("topright", legend = "95% Confidence Interval",
+         col = "black", lty = 1, bty = "n")
+  
+  # Add a tendency line connecting coefficient estimates
+  lines(x_positions, coef_values, type = "l", col = "blue")
+  
+} else {
+  cat("Non-finite coefficient values encountered.")
+}
+
+
+
+```
+
+
+
+
+
+
+
+
